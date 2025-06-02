@@ -5,7 +5,11 @@ import clientPromise from "@/lib/mongodb"
 export async function GET(request: NextRequest, { params }: { params: { userId: string } }) {
   try {
     const { userId: currentUserId } = await auth()
-    const targetUserId = params?.userId
+    const { userId: targetUserId } = await params
+
+    if (!targetUserId) {
+      return NextResponse.json({ error: "User ID is required" }, { status: 400 })
+    }
 
     if (!currentUserId) {
       // If not authenticated, only show public gists

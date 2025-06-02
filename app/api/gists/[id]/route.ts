@@ -140,7 +140,7 @@ export default Counter;`,
 
 export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
   try {
-    const gistId = params?.id
+    const { id: gistId } = await params
     console.log("Fetching gist with ID:", gistId)
 
     // Check if it's a demo gist first
