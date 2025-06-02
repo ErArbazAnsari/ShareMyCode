@@ -98,6 +98,7 @@ export default function RootLayout({
           socialButtonsPlacement: "bottom",
           socialButtonsVariant: "blockButton",
           shimmer: "none",
+          unsafe_disableDevelopmentModeWarnings: true,
         },
       }}
     >
