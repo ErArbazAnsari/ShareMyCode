@@ -76,7 +76,31 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <ClerkProvider appearance={{ elements: { footer: "hidden" } }}>
+    <ClerkProvider
+      appearance={{
+        elements: {
+          footer: "hidden",
+          formButtonPrimary: "bg-primary text-primary-foreground hover:bg-primary/90",
+          card: "bg-background",
+          headerTitle: "text-foreground",
+          headerSubtitle: "text-muted-foreground",
+          socialButtonsBlockButton: "bg-background text-foreground border border-input hover:bg-accent hover:text-accent-foreground",
+          formFieldInput: "bg-background text-foreground border border-input",
+          formFieldLabel: "text-foreground",
+          formFieldInputShowPasswordButton: "text-muted-foreground hover:text-foreground",
+          identityPreviewEditButton: "text-muted-foreground hover:text-foreground",
+          userButtonPopoverCard: "bg-background border border-input",
+          userButtonPopoverActionButton: "text-foreground hover:bg-accent hover:text-accent-foreground",
+          userButtonPopoverActionButtonText: "text-foreground",
+          userButtonPopoverFooter: "hidden",
+        },
+        layout: {
+          socialButtonsPlacement: "bottom",
+          socialButtonsVariant: "blockButton",
+          shimmer: "none",
+        },
+      }}
+    >
       <html lang="en" suppressHydrationWarning>
         <head>
           <link rel="icon" href="/favicon.png" />
