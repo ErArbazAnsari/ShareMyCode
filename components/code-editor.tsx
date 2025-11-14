@@ -27,7 +27,6 @@ export function CodeEditor({ value, onChange, placeholder }: CodeEditorProps) {
       const newValue = value.substring(0, start) + spaces + value.substring(end)
       onChange(newValue)
 
-      // Set cursor position after the inserted spaces
       setTimeout(() => {
         target.selectionStart = target.selectionEnd = start + spaces.length
       }, 0)
