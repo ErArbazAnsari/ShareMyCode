@@ -31,7 +31,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { Label } from "@/components/ui/label"
-import { SUPPORTED_FILE_EXTENSIONS, MESSAGES } from "@/lib/constants"
+import { MESSAGES } from "@/lib/constants"
 import type { Gist } from "@/types"
 
 export default function GistPage() {
@@ -314,39 +314,8 @@ export default function GistPage() {
 
   const handleFileNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value
-    const lastDotIndex = value.lastIndexOf('.')
-    if (lastDotIndex === -1) {
-      setEditedGist({ ...editedGist, fileNameWithExtension: value })
-      return
-    }
-
-    const name = value.substring(0, lastDotIndex)
-    const extension = value.substring(lastDotIndex + 1)
-    if (extension && !SUPPORTED_FILE_EXTENSIONS.includes(extension.toLowerCase() as any)) {
-      toast.error("Invalid file extension")
-      return
-    }
-
+    // Allow any filename with or without extension
     setEditedGist({ ...editedGist, fileNameWithExtension: value })
-  }
-
-  const handleExtensionChange = (extension: string) => {
-    const lastDotIndex = editedGist.fileNameWithExtension.lastIndexOf('.')
-    const name = lastDotIndex === -1
-      ? editedGist.fileNameWithExtension
-      : editedGist.fileNameWithExtension.substring(0, lastDotIndex)
-
-    const newFileName = `${name}.${extension.toLowerCase()}`
-    setEditedGist({
-      ...editedGist,
-      fileNameWithExtension: newFileName
-    })
-  }
-
-  const getCurrentExtension = () => {
-    const lastDotIndex = editedGist.fileNameWithExtension.lastIndexOf('.')
-    if (lastDotIndex === -1) return ''
-    return editedGist.fileNameWithExtension.substring(lastDotIndex + 1).toLowerCase()
   }
 
   if (loading) {
@@ -536,28 +505,12 @@ export default function GistPage() {
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-2">
               {isEditing ? (
-                <div className="flex items-center space-x-2">
-                  <Input
-                    value={editedGist.fileNameWithExtension}
-                    onChange={handleFileNameChange}
-                    className="text-lg"
-                  />
-                  <Select
-                    value={getCurrentExtension()}
-                    onValueChange={handleExtensionChange}
-                  >
-                    <SelectTrigger className="w-[100px]">
-                      <SelectValue placeholder="Type" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {SUPPORTED_FILE_EXTENSIONS.map((ext) => (
-                        <SelectItem key={ext} value={ext}>
-                          {ext.toUpperCase()}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+                <Input
+                  value={editedGist.fileNameWithExtension}
+                  onChange={handleFileNameChange}
+                  className="text-lg flex-1 max-w-md"
+                  placeholder="filename.ext"
+                />
               ) : (
                 <>
                   <CardTitle className="text-lg">{gist.fileNameWithExtension}</CardTitle>

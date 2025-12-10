@@ -8,8 +8,8 @@ export const TOAST_REMOVE_DELAY = 1000000
 // Mobile breakpoint
 export const MOBILE_BREAKPOINT = 768
 
-// Supported file extensions for code highlighting
-export const SUPPORTED_FILE_EXTENSIONS = [
+// Common file extensions with syntax highlighting support
+export const COMMON_FILE_EXTENSIONS = [
   "js",
   "ts",
   "jsx",
@@ -40,6 +40,9 @@ export const SUPPORTED_FILE_EXTENSIONS = [
   "graphql",
   "vue",
 ] as const
+
+// Support all file types - no restrictions on extensions
+export const SUPPORTED_FILE_EXTENSIONS = COMMON_FILE_EXTENSIONS
 
 // Gist visibility options
 export const GIST_VISIBILITY_OPTIONS = ["public", "private"] as const
