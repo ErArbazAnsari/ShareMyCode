@@ -31,10 +31,8 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { Label } from "@/components/ui/label"
-
-const FILE_EXTENSIONS = [
-  "js", "ts", "jsx", "tsx", "html", "css", "scss", "json", "md", "txt", "py", "java", "c", "cpp", "php", "rb", "go", "rs", "swift", "kt"
-]
+import { SUPPORTED_FILE_EXTENSIONS, MESSAGES } from "@/lib/constants"
+import type { Gist } from "@/types"
 
 export default function GistPage() {
   const params = useParams()
@@ -324,7 +322,7 @@ export default function GistPage() {
 
     const name = value.substring(0, lastDotIndex)
     const extension = value.substring(lastDotIndex + 1)
-    if (extension && !FILE_EXTENSIONS.includes(extension.toLowerCase())) {
+    if (extension && !SUPPORTED_FILE_EXTENSIONS.includes(extension.toLowerCase() as any)) {
       toast.error("Invalid file extension")
       return
     }
@@ -552,7 +550,7 @@ export default function GistPage() {
                       <SelectValue placeholder="Type" />
                     </SelectTrigger>
                     <SelectContent>
-                      {FILE_EXTENSIONS.map((ext) => (
+                      {SUPPORTED_FILE_EXTENSIONS.map((ext) => (
                         <SelectItem key={ext} value={ext}>
                           {ext.toUpperCase()}
                         </SelectItem>

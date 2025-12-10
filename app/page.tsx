@@ -7,94 +7,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import Link from "next/link"
 import { Plus } from "lucide-react"
 import { useUser } from "@clerk/nextjs"
-
-// Hardcoded demo gists as fallback
-const fallbackDemoGists = [
-  {
-    _id: "demo-js-1",
-    userId: "demo",
-    user_fullName: "Demo User",
-    gistViews: 1250,
-    gistDescription: "JavaScript Hello World and Basic Functions",
-    fileNameWithExtension: "hello.js",
-    gistCode: `// JavaScript Hello World
-console.log("Hello, World! 🌍");
-
-// Basic function example
-function greetUser(name) {
-    return \`Hello, \${name}! Welcome to JavaScript.\`;
-}
-
-// Arrow function
-const addNumbers = (a, b) => a + b;
-
-// Example usage
-const userName = "Developer";
-console.log(greetUser(userName));
-console.log("Sum of 5 + 3 =", addNumbers(5, 3));`,
-    sharedFile: [],
-    visibility: "public",
-    createdAt: new Date("2024-01-15"),
-    updatedAt: new Date("2024-01-15"),
-  },
-  {
-    _id: "demo-python-1",
-    userId: "demo",
-    user_fullName: "Demo User",
-    gistViews: 890,
-    gistDescription: "Python Basics - Variables, Functions, and Loops",
-    fileNameWithExtension: "basics.py",
-    gistCode: `# Python Hello World
-print("Hello, World! 🐍")
-
-# Variables and data types
-name = "Python Developer"
-age = 25
-
-# Function definition
-def greet_user(user_name, user_age):
-    return f"Hello {user_name}! You are {user_age} years old."
-
-# Example usage
-print(greet_user(name, age))`,
-    sharedFile: [],
-    visibility: "public",
-    createdAt: new Date("2024-01-14"),
-    updatedAt: new Date("2024-01-14"),
-  },
-  {
-    _id: "demo-react-1",
-    userId: "demo",
-    user_fullName: "Demo User",
-    gistViews: 675,
-    gistDescription: "React Component - Simple Counter with Hooks",
-    fileNameWithExtension: "Counter.jsx",
-    gistCode: `import React, { useState } from 'react';
-
-function Counter() {
-  const [count, setCount] = useState(0);
-
-  const increment = () => setCount(count + 1);
-  const decrement = () => setCount(count - 1);
-  const reset = () => setCount(0);
-
-  return (
-    <div className="counter">
-      <h2>Counter: {count}</h2>
-      <button onClick={decrement}>-</button>
-      <button onClick={increment}>+</button>
-      <button onClick={reset}>Reset</button>
-    </div>
-  );
-}
-
-export default Counter;`,
-    sharedFile: [],
-    visibility: "public",
-    createdAt: new Date("2024-01-13"),
-    updatedAt: new Date("2024-01-13"),
-  },
-]
+import { demoGists } from "@/lib/demo-data"
 
 export default function HomePage() {
   const { isSignedIn, isLoaded, user } = useUser()
@@ -107,40 +20,30 @@ export default function HomePage() {
         setLoading(true)
 
         if (isSignedIn && user) {
-          console.log("Fetching gists for authenticated user")
-          // Fetch user's gists (both public and private)
           const response = await fetch(`/api/gists/user/${user.id}`)
           if (response.ok) {
             const data = await response.json()
-            console.log("Fetched user gists:", data.length, "items")
             setGists(data)
           } else {
-            console.error("Failed to fetch user gists")
             setGists([])
           }
         } else {
-          console.log("User not signed in, showing demo gists")
-          // For non-authenticated users, always show demo gists
-          // Try to fetch from API first, fallback to hardcoded
           try {
             const response = await fetch("/api/gists/demo")
             if (response.ok) {
               const data = await response.json()
-              console.log("Fetched demo gists from API:", data.length, "items")
               setGists(data)
             } else {
-              console.log("API failed, using fallback demo gists")
-              setGists(fallbackDemoGists)
+              setGists(demoGists)
             }
           } catch (error) {
-            console.log("Error fetching demo gists, using fallback:", error)
-            setGists(fallbackDemoGists)
+            setGists(demoGists)
           }
         }
       } catch (error) {
         console.error("Error in fetchGists:", error)
         if (!isSignedIn) {
-          setGists(fallbackDemoGists)
+          setGists(demoGists)
         } else {
           setGists([])
         }

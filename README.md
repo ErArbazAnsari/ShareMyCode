@@ -78,7 +78,7 @@
 - **Raw View** - View raw code without formatting
 
 ### 📎 File Attachments
-- **Single File Upload** - Attach one file per gist (max 2KB)
+- **Single File Upload** - Attach one file per gist
 - **Cloudinary Storage** - Secure cloud storage for attachments
 - **File Management** - Upload, view, and delete attachments
 - **Download Support** - Download attached files directly
@@ -329,7 +329,7 @@ ShareMyCode uses Clerk for authentication, providing:
    - **Filename** - Filename with extension (e.g., `example.js`)
    - **Code** - The actual code content
    - **Visibility** - Public or Private
-   - **Attachments** - Optional file upload (max 2KB, one file)
+   - **Attachments** - Optional file upload 
 4. Form submission sends data to `/api/gists` (POST)
 5. Server:
    - Validates authentication
@@ -357,7 +357,6 @@ ShareMyCode uses Clerk for authentication, providing:
 
 - **Storage**: Cloudinary cloud storage
 - **Limits**: 
-  - Maximum file size: 2KB
   - Maximum files per gist: 1
 - **Supported Types**: All file types
 - **Process**:

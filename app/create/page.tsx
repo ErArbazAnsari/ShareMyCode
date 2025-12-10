@@ -13,9 +13,11 @@ import { CodeEditor } from "@/components/code-editor"
 import { useToast } from "@/hooks/use-toast"
 import { Upload, X, FileText, Loader2 } from "lucide-react"
 import { Switch } from "@/components/ui/switch"
+import { MAX_FILE_SIZE, MESSAGES, FORM_MESSAGES } from "@/lib/constants"
+import type { GistVisibility } from "@/types"
 
 export default function CreateGistPage() {
-  const { isLoaded, isSignedIn, user } = useUser()
+  const { isLoaded, isSignedIn } = useUser()
   const router = useRouter()
   const { toast } = useToast()
 
@@ -23,40 +25,35 @@ export default function CreateGistPage() {
     gistDescription: "",
     fileNameWithExtension: "",
     gistCode: "",
-    visibility: "public" as "public" | "private",
+    visibility: "public" as GistVisibility,
   })
 
   const [files, setFiles] = useState<File[]>([])
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [showAttachments, setShowAttachments] = useState(false)
 
-  const MAX_FILE_SIZE = 2 * 1024 // 2KB in bytes
-
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFiles = Array.from(e.target.files || [])
 
-    // Check if user already has a file
     if (files.length > 0) {
       toast({
         title: "File limit reached",
-        description: "You can only upload one file per gist",
+        description: MESSAGES.FILE_LIMIT_REACHED,
         variant: "destructive",
       })
       return
     }
 
-    // Check file sizes
     const oversizedFiles = selectedFiles.filter(file => file.size > MAX_FILE_SIZE)
     if (oversizedFiles.length > 0) {
       toast({
         title: "File size too large",
-        description: `The following files exceed 2KB limit: ${oversizedFiles.map(f => f.name).join(", ")}`,
+        description: `${MESSAGES.FILE_SIZE_TOO_LARGE}: ${oversizedFiles.map(f => f.name).join(", ")}`,
         variant: "destructive",
       })
       return
     }
 
-    // Only take the first file if multiple are selected
     const fileToAdd = selectedFiles[0]
     setFiles([fileToAdd])
   }
@@ -71,7 +68,7 @@ export default function CreateGistPage() {
     if (!isSignedIn) {
       toast({
         title: "Authentication required",
-        description: "Please sign in to create a gist",
+        description: MESSAGES.AUTH_REQUIRED,
         variant: "destructive",
       })
       return
@@ -80,12 +77,11 @@ export default function CreateGistPage() {
     if (!formData.fileNameWithExtension || !formData.gistCode) {
       toast({
         title: "Error",
-        description: "Please provide both filename and code",
+        description: FORM_MESSAGES.BOTH_REQUIRED,
         variant: "destructive",
       })
       return
     }
-
     setIsSubmitting(true)
 
     try {
@@ -95,38 +91,31 @@ export default function CreateGistPage() {
       submitData.append("gistCode", formData.gistCode)
       submitData.append("visibility", formData.visibility)
 
-      // Only append file if one exists and showAttachments is true
       if (showAttachments && files.length > 0) {
         submitData.append("files", files[0])
       }
-
-      console.log("Submitting gist creation request...")
 
       const response = await fetch("/api/gists", {
         method: "POST",
         body: submitData,
       })
 
-      console.log("Response status:", response.status)
-
       const result = await response.json()
-      console.log("Response data:", result)
 
       if (!response.ok) {
-        throw new Error(result.details || result.error || "Failed to create gist")
+        throw new Error(result.details || result.error || MESSAGES.ERROR_OCCURRED)
       }
 
       toast({
         title: "Success",
-        description: "Gist created successfully!",
+        description: MESSAGES.GIST_CREATED,
       })
 
       router.push(`/gist/${result.gistId}`)
     } catch (error) {
-      console.error("Error creating gist:", error)
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Failed to create gist. Please try again.",
+        description: error instanceof Error ? error.message : MESSAGES.ERROR_OCCURRED,
         variant: "destructive",
       })
     } finally {
@@ -134,7 +123,6 @@ export default function CreateGistPage() {
     }
   }
 
-  // Show loading state while authentication is loading
   if (!isLoaded) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
@@ -239,7 +227,7 @@ export default function CreateGistPage() {
               <div>
                 <CardTitle>Additional Files</CardTitle>
                 <CardDescription>
-                  Upload one additional file to share alongside your code. Maximum file size: 2KB
+                  Upload one additional file to share alongside your code. Maximum file size: 200 MB
                 </CardDescription>
               </div>
               <div className="flex items-center space-x-2">
@@ -262,7 +250,7 @@ export default function CreateGistPage() {
                     <div className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-6 text-center hover:border-muted-foreground/50 transition-colors">
                       <Upload className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
                       <p className="text-sm text-muted-foreground">Click to upload a file or drag and drop</p>
-                      <p className="text-xs text-muted-foreground mt-1">Maximum file size: 2KB (One file only)</p>
+                      <p className="text-xs text-muted-foreground mt-1">Maximum file size: 200 MB (One file only)</p>
                     </div>
                   </Label>
                   <Input

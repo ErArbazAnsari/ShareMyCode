@@ -110,12 +110,12 @@ export async function POST(request: NextRequest) {
 
         for (const file of files) {
             if (file.size > 0) {
-                // Check file size (2KB limit)
-                if (file.size > 2 * 1024) {
+                // Check file sized
+                if (file.size > 200 * 1024) {
                     return NextResponse.json(
                         {
                             error: "File too large",
-                            details: "File size must be less than 2KB",
+                            details: "File size must be less than 200 MB",
                         },
                         { status: 400 }
                     );

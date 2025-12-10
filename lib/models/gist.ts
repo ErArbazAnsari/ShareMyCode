@@ -1,29 +1,3 @@
-export interface SharedFile {
-    fileName: string;
-    fileUrl: string;
-    fileSize: number;
-    uploadedAt: Date;
-}
+// Re-export types from the types folder for backward compatibility
+export * from "@/types/gist"
 
-export interface Gist {
-    _id?: string;
-    userId: string;
-    user_fullName: string;
-    gistViews: number;
-    gistDescription: string;
-    fileNameWithExtension: string;
-    gistCode: string;
-    sharedFile: SharedFile[];
-    visibility: "public" | "private";
-    createdAt: Date;
-    updatedAt: Date;
-    userImageUrl?: string;
-}
-
-export interface CreateGistData {
-    gistDescription: string;
-    fileNameWithExtension: string;
-    gistCode: string;
-    sharedFile?: SharedFile[];
-    visibility: "public" | "private";
-}
