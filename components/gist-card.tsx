@@ -29,8 +29,10 @@ export function GistCard({ gist, onDelete }: GistCardProps) {
   const [isDeleting, setIsDeleting] = useState(false)
   const router = useRouter()
 
-  const getFileExtension = (filename: string) => {
-    return filename.split(".").pop()?.toUpperCase() || "TXT"
+  const getFileExtension = (filename?: string) => {
+    if (!filename) return "TXT"
+    const parts = filename.split(".")
+    return (parts.length > 1 ? parts.pop() : parts[0]).toUpperCase()
   }
 
   const formatDate = (date: Date | string) => {
@@ -41,9 +43,10 @@ export function GistCard({ gist, onDelete }: GistCardProps) {
     })
   }
 
-  const initials = gist.user_fullName
+  const safeName = gist.user_fullName || gist.user_full_name || "Anonymous"
+  const initials = safeName
     .split(" ")
-    .map((n) => n[0])
+    .map((n) => (n && n.length > 0 ? n[0] : ""))
     .join("")
     .toUpperCase()
 

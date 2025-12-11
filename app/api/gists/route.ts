@@ -95,6 +95,25 @@ export async function POST(request: NextRequest) {
         const files = formData.getAll("files") as File[];
         const sharedFile: SharedFile[] = [];
 
+        // Support pre-uploaded file metadata (uploaded via /api/gists/upload)
+        const preUploaded = formData.get("preUploaded") === "true";
+        const preUploadedFileRaw = formData.get("preUploadedFile") as string | null;
+        if (preUploaded && preUploadedFileRaw) {
+            try {
+                const parsed = JSON.parse(preUploadedFileRaw);
+                if (parsed && parsed.fileUrl) {
+                    sharedFile.push({
+                        fileName: parsed.fileName || "attachment",
+                        fileUrl: parsed.fileUrl,
+                        fileSize: parsed.fileSize || 0,
+                        uploadedAt: new Date(),
+                    });
+                }
+            } catch (err) {
+                console.error("Invalid preUploadedFile payload:", err);
+            }
+        }
+
         console.log("Processing files:", files.length);
 
         // Validate file size and count
@@ -110,12 +129,13 @@ export async function POST(request: NextRequest) {
 
         for (const file of files) {
             if (file.size > 0) {
-                // Check file size (2KB limit)
-                if (file.size > 2 * 1024) {
+                // Check file size (100MB limit)
+                const MAX_BYTES = 100 * 1024 * 1024; // 100MB
+                if (file.size > MAX_BYTES) {
                     return NextResponse.json(
                         {
                             error: "File too large",
-                            details: "File size must be less than 2KB",
+                            details: "File size must be less than 100MB",
                         },
                         { status: 400 }
                     );

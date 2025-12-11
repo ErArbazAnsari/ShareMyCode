@@ -13,6 +13,14 @@ import { CodeEditor } from "@/components/code-editor"
 import { useToast } from "@/hooks/use-toast"
 import { Upload, X, FileText, Loader2 } from "lucide-react"
 import { Switch } from "@/components/ui/switch"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog"
+import { Progress } from "@/components/ui/progress"
 
 export default function CreateGistPage() {
   const { isLoaded, isSignedIn, user } = useUser()
@@ -27,16 +35,24 @@ export default function CreateGistPage() {
   })
 
   const [files, setFiles] = useState<File[]>([])
+  const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [showAttachments, setShowAttachments] = useState(false)
+  const [isDialogOpen, setIsDialogOpen] = useState(false)
+  const [uploadProgress, setUploadProgress] = useState(0)
+  const [isFileUploading, setIsFileUploading] = useState(false)
+  const [uploadXhr, setUploadXhr] = useState<XMLHttpRequest | null>(null)
+  const [uploadedFileInfo, setUploadedFileInfo] = useState<any | null>(null)
+  const [uploadError, setUploadError] = useState<string | null>(null)
 
-  const MAX_FILE_SIZE = 2 * 1024 // 2KB in bytes
+  const MAX_FILE_SIZE = 100 * 1024 * 1024 // 100MB in bytes
+  const CLOUDINARY_CHUNK_SIZE = 9 * 1024 * 1024 // 9MB chunks (under 10MB Cloudinary limit)
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFiles = Array.from(e.target.files || [])
 
-    // Check if user already has a file
-    if (files.length > 0) {
+    // Prevent multiple files client-side
+    if (files.length > 0 || uploadedFileInfo) {
       toast({
         title: "File limit reached",
         description: "You can only upload one file per gist",
@@ -45,20 +61,169 @@ export default function CreateGistPage() {
       return
     }
 
-    // Check file sizes
-    const oversizedFiles = selectedFiles.filter(file => file.size > MAX_FILE_SIZE)
-    if (oversizedFiles.length > 0) {
+    if (selectedFiles.length === 0) return
+
+    const fileToAdd = selectedFiles[0]
+
+    // Validate file size
+    if (fileToAdd.size > MAX_FILE_SIZE) {
       toast({
         title: "File size too large",
-        description: `The following files exceed 2KB limit: ${oversizedFiles.map(f => f.name).join(", ")}`,
+        description: `The selected file exceeds the 100MB limit: ${fileToAdd.name}`,
         variant: "destructive",
       })
       return
     }
 
-    // Only take the first file if multiple are selected
-    const fileToAdd = selectedFiles[0]
-    setFiles([fileToAdd])
+    // Open dialog and start upload
+    setSelectedFile(fileToAdd)
+    setIsDialogOpen(true)
+    setUploadProgress(0)
+    setUploadError(null)
+    startUpload(fileToAdd)
+  }
+
+  async function startUpload(file: File) {
+    setIsFileUploading(true)
+    
+    try {
+      // Get Cloudinary config
+      const configRes = await fetch("/api/gists/upload/config")
+      if (!configRes.ok) throw new Error("Failed to get upload config")
+      const config = await configRes.json()
+
+      const CHUNK_SIZE = 8 * 1024 * 1024 // 8MB chunks (under 10MB limit)
+      
+      // If file is small enough, upload directly
+      if (file.size <= CHUNK_SIZE) {
+        await uploadDirect(file, config)
+      } else {
+        // For large files, use chunked multipart upload
+        await uploadChunked(file, config, CHUNK_SIZE)
+      }
+    } catch (err) {
+      setIsFileUploading(false)
+      setUploadXhr(null)
+      const errorMsg = err instanceof Error ? err.message : "Upload failed"
+      setUploadError(errorMsg)
+      toast({ title: "Upload failed", description: errorMsg, variant: "destructive" })
+    }
+  }
+
+  async function uploadDirect(file: File, config: any) {
+    return new Promise<void>((resolve, reject) => {
+      const form = new FormData()
+      form.append("file", file)
+      form.append("upload_preset", config.uploadPreset)
+      form.append("folder", "gist-files")
+
+      const xhr = new XMLHttpRequest()
+      setUploadXhr(xhr)
+
+      xhr.upload.onprogress = (evt) => {
+        if (evt.lengthComputable) {
+          const percent = Math.round((evt.loaded / evt.total) * 100)
+          setUploadProgress(percent)
+        }
+      }
+
+      xhr.onload = () => {
+        setIsFileUploading(false)
+        setUploadXhr(null)
+        if (xhr.status >= 200 && xhr.status < 300) {
+          try {
+            const cloudinaryRes = JSON.parse(xhr.responseText)
+            const fileInfo = {
+              fileName: file.name,
+              fileUrl: cloudinaryRes.secure_url,
+              fileSize: file.size,
+              publicId: cloudinaryRes.public_id,
+            }
+            setUploadedFileInfo(fileInfo)
+            setFiles([])
+            toast({ title: "Upload succeeded", description: file.name })
+            resolve()
+          } catch (err) {
+            reject(new Error("Invalid Cloudinary response"))
+          }
+        } else {
+          reject(new Error(`Upload failed: ${xhr.status}`))
+        }
+      }
+
+      xhr.onerror = () => {
+        setIsFileUploading(false)
+        setUploadXhr(null)
+        reject(new Error("Network error"))
+      }
+
+      xhr.open("POST", `https://api.cloudinary.com/v1_1/${config.cloudName}/upload`)
+      xhr.send(form)
+    })
+  }
+
+  async function uploadChunked(file: File, config: any, chunkSize: number) {
+    // For chunked uploads, we need to use server-side processing
+    // because Cloudinary's chunked upload API requires signatures per chunk
+    const form = new FormData()
+    form.append("files", file)
+
+    const xhr = new XMLHttpRequest()
+    setUploadXhr(xhr)
+
+    let uploadedBytes = 0
+
+    xhr.upload.onprogress = (evt) => {
+      if (evt.lengthComputable) {
+        const percent = Math.round((evt.loaded / evt.total) * 100)
+        setUploadProgress(percent)
+      }
+    }
+
+    return new Promise<void>((resolve, reject) => {
+      xhr.onload = () => {
+        setIsFileUploading(false)
+        setUploadXhr(null)
+        if (xhr.status >= 200 && xhr.status < 300) {
+          try {
+            const res = JSON.parse(xhr.responseText)
+            if (res?.success && res.file) {
+              setUploadedFileInfo(res.file)
+              setFiles([])
+              toast({ title: "Upload succeeded", description: res.file.fileName })
+              resolve()
+            } else {
+              reject(new Error(res?.error || "Upload failed"))
+            }
+          } catch (err) {
+            reject(new Error("Invalid server response"))
+          }
+        } else {
+          reject(new Error(`Upload failed: ${xhr.status}`))
+        }
+      }
+
+      xhr.onerror = () => {
+        setIsFileUploading(false)
+        setUploadXhr(null)
+        reject(new Error("Network error"))
+      }
+
+      xhr.open("POST", "/api/gists/upload/chunked")
+      xhr.send(form)
+    })
+  }
+
+  function cancelUpload() {
+    if (uploadXhr) {
+      uploadXhr.abort()
+      setUploadXhr(null)
+      setIsFileUploading(false)
+      setUploadProgress(0)
+      setSelectedFile(null)
+      setIsDialogOpen(false)
+      toast({ title: "Upload canceled" })
+    }
   }
 
   const removeFile = (index: number) => {
@@ -95,9 +260,15 @@ export default function CreateGistPage() {
       submitData.append("gistCode", formData.gistCode)
       submitData.append("visibility", formData.visibility)
 
-      // Only append file if one exists and showAttachments is true
-      if (showAttachments && files.length > 0) {
-        submitData.append("files", files[0])
+      // If a file was previously uploaded via the upload endpoint, send metadata
+      // so the server can reference the already-uploaded file instead of re-uploading.
+      if (showAttachments) {
+        if (uploadedFileInfo) {
+          submitData.append("preUploaded", "true")
+          submitData.append("preUploadedFile", JSON.stringify(uploadedFileInfo))
+        } else if (files.length > 0) {
+          submitData.append("files", files[0])
+        }
       }
 
       console.log("Submitting gist creation request...")
@@ -239,7 +410,7 @@ export default function CreateGistPage() {
               <div>
                 <CardTitle>Additional Files</CardTitle>
                 <CardDescription>
-                  Upload one additional file to share alongside your code. Maximum file size: 2KB
+                  Upload one additional file to share alongside your code. Maximum file size: 100MB
                 </CardDescription>
               </div>
               <div className="flex items-center space-x-2">
@@ -262,7 +433,7 @@ export default function CreateGistPage() {
                     <div className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-6 text-center hover:border-muted-foreground/50 transition-colors">
                       <Upload className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
                       <p className="text-sm text-muted-foreground">Click to upload a file or drag and drop</p>
-                      <p className="text-xs text-muted-foreground mt-1">Maximum file size: 2KB (One file only)</p>
+                      <p className="text-xs text-muted-foreground mt-1">Maximum file size: 100MB (One file only)</p>
                     </div>
                   </Label>
                   <Input
@@ -274,39 +445,92 @@ export default function CreateGistPage() {
                 </div>
 
                 {/* Files List */}
-                {files.length > 0 && (
+                {(files.length > 0 || uploadedFileInfo) && (
                   <div className="space-y-2">
-                    {files.map((file, index) => (
-                      <div key={index} className="flex items-center justify-between p-3 border rounded-lg">
+                    {uploadedFileInfo ? (
+                      <div className="flex items-center justify-between p-3 border rounded-lg">
                         <div className="flex items-center space-x-3">
                           <FileText className="h-5 w-5 text-muted-foreground" />
                           <div>
-                            <p className="font-medium">{file.name}</p>
+                            <p className="font-medium">{uploadedFileInfo.fileName}</p>
                             <p className="text-sm text-muted-foreground">
-                              {(file.size / 1024).toFixed(1)} KB
-                              {file.size > MAX_FILE_SIZE && (
-                                <span className="text-destructive ml-2">(Too large)</span>
-                              )}
+                              {(uploadedFileInfo.fileSize / 1024).toFixed(1)} KB • Uploaded
                             </p>
                           </div>
                         </div>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
-                          onClick={() => removeFile(index)}
-                          type="button"
-                        >
-                          <X className="h-4 w-4" />
-                        </Button>
+                        <div className="flex items-center space-x-2">
+                          <a href={uploadedFileInfo.fileUrl} target="_blank" rel="noreferrer" className="text-sm text-primary">View</a>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                            onClick={() => { setUploadedFileInfo(null); setSelectedFile(null); }}
+                            type="button"
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </div>
                       </div>
-                    ))}
+                    ) : (
+                      files.map((file, index) => (
+                        <div key={index} className="flex items-center justify-between p-3 border rounded-lg">
+                          <div className="flex items-center space-x-3">
+                            <FileText className="h-5 w-5 text-muted-foreground" />
+                            <div>
+                              <p className="font-medium">{file.name}</p>
+                              <p className="text-sm text-muted-foreground">
+                                {(file.size / 1024).toFixed(1)} KB
+                                {file.size > MAX_FILE_SIZE && (
+                                  <span className="text-destructive ml-2">(Too large)</span>
+                                )}
+                              </p>
+                            </div>
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                            onClick={() => removeFile(index)}
+                            type="button"
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      ))
+                    )}
                   </div>
                 )}
               </div>
             </CardContent>
           )}
         </Card>
+
+        {/* Upload Dialog */}
+        <Dialog open={isDialogOpen} onOpenChange={(open) => { if (!open) { setIsDialogOpen(false); setSelectedFile(null); } }}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Uploading file</DialogTitle>
+              <DialogDescription>
+                {selectedFile ? selectedFile.name : "Preparing upload..."}
+              </DialogDescription>
+            </DialogHeader>
+            <div className="mt-4">
+              <p className="text-sm text-muted-foreground">{selectedFile ? `${(selectedFile.size/1024/1024).toFixed(2)} MB` : null}</p>
+              <div className="mt-3">
+                <Progress value={uploadProgress} />
+                <div className="text-sm text-muted-foreground mt-2">{uploadProgress}%</div>
+                {uploadError && <div className="text-sm text-destructive mt-2">{uploadError}</div>}
+              </div>
+              <div className="flex justify-end mt-4 space-x-2">
+                {isFileUploading ? (
+                  <Button type="button" variant="ghost" onClick={cancelUpload}>Cancel</Button>
+                ) : (
+                  <Button type="button" onClick={() => setIsDialogOpen(false)}>Close</Button>
+                )}
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
 
         <div className="flex justify-end">
           <Button type="submit" disabled={isSubmitting}>

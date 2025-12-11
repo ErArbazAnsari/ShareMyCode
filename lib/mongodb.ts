@@ -1,25 +1,27 @@
-import { MongoClient } from "mongodb";
+import { MongoClient, MongoClientOptions } from "mongodb";
 
-if (!process.env.MONGODB_URI) {
+if (!process.env.MONGODB_URI || !process.env.MONGODB_URI.trim()) {
     throw new Error('Invalid/Missing environment variable: "MONGODB_URI"');
 }
 
 const uri = process.env.MONGODB_URI;
-const options = {};
+const options: MongoClientOptions = {};
 
-let client;
+let client: MongoClient | null = null;
 let clientPromise: Promise<MongoClient>;
 
 if (process.env.NODE_ENV === "development") {
-    const globalWithMongo = global as typeof globalThis & {
+    const globalWithMongo = global as unknown as {
         _mongoClientPromise?: Promise<MongoClient>;
+        _mongoClient?: MongoClient;
     };
 
     if (!globalWithMongo._mongoClientPromise) {
         client = new MongoClient(uri, options);
+        globalWithMongo._mongoClient = client;
         globalWithMongo._mongoClientPromise = client.connect();
     }
-    clientPromise = globalWithMongo._mongoClientPromise;
+    clientPromise = globalWithMongo._mongoClientPromise!;
 } else {
     client = new MongoClient(uri, options);
     clientPromise = client.connect();
@@ -28,4 +30,5 @@ if (process.env.NODE_ENV === "development") {
 clientPromise.catch((error) => {
     console.error("MongoDB connection error:", error);
 });
+
 export default clientPromise;

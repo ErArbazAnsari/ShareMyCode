@@ -120,7 +120,7 @@ export default function RootLayout({
           <meta name="msapplication-tap-highlight" content="no" />
         </head>
         <body className={inter.className}>
-          <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
+          <ThemeProvider attribute="class" defaultTheme="light" enableSystem disableTransitionOnChange>
             <div className="min-h-screen bg-background">
               <Navbar />
               <main className="container mx-auto px-4 py-8">{children}</main>
