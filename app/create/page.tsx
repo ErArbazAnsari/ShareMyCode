@@ -15,6 +15,7 @@ import { Upload, X, FileText, Loader2 } from "lucide-react"
 import { Switch } from "@/components/ui/switch"
 import { MAX_FILE_SIZE, MESSAGES, FORM_MESSAGES } from "@/lib/constants"
 import type { GistVisibility } from "@/types"
+import { createGist } from "@/lib/actions/gist"
 
 export default function CreateGistPage() {
   const { isLoaded, isSignedIn } = useUser()
@@ -29,8 +30,13 @@ export default function CreateGistPage() {
   })
 
   const [files, setFiles] = useState<File[]>([])
+  const [uploadProgress, setUploadProgress] = useState<number | null>(null)
+  const [uploadedFile, setUploadedFile] = useState<{ url: string; publicId?: string; name: string; size: number } | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [showAttachments, setShowAttachments] = useState(false)
+  // Auto-upload small files directly to Cloudinary for progress UI.
+  // For larger files we fallback to server-side upload to avoid CORS/413 issues.
+  const AUTO_UPLOAD_LIMIT = 10 * 1024 * 1024 // 10 MB
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFiles = Array.from(e.target.files || [])
@@ -56,6 +62,97 @@ export default function CreateGistPage() {
 
     const fileToAdd = selectedFiles[0]
     setFiles([fileToAdd])
+    // Always start upload flow on selection. uploadFileToCloudinary will
+    // do direct uploads for small files and chunked uploads for large files.
+    void uploadFileToCloudinary(fileToAdd)
+  }
+
+  async function uploadFileToCloudinary(file: File) {
+    // Use direct signed Cloudinary upload for small files, chunked server upload for larger files.
+    try {
+      setUploadProgress(0)
+
+      if (file.size <= AUTO_UPLOAD_LIMIT) {
+        // Direct signed upload (small files)
+        const sigRes = await fetch('/api/cloudinary/signature')
+        if (!sigRes.ok) throw new Error('Failed to get upload signature')
+        const sigJson = await sigRes.json()
+        const { apiKey, cloudName, timestamp, signature } = sigJson
+
+        const url = `https://api.cloudinary.com/v1_1/${cloudName}/auto/upload`;
+        const form = new FormData()
+        form.append('file', file)
+        form.append('api_key', apiKey)
+        form.append('timestamp', String(timestamp))
+        form.append('signature', signature)
+        form.append('folder', 'gist-files')
+
+        await new Promise<void>((resolve, reject) => {
+          const xhr = new XMLHttpRequest()
+          xhr.open('POST', url)
+          xhr.upload.onprogress = (e) => {
+            if (e.lengthComputable) {
+              const percent = Math.round((e.loaded / e.total) * 100)
+              setUploadProgress(percent)
+            }
+          }
+          xhr.onload = () => {
+            if (xhr.status >= 200 && xhr.status < 300) {
+              try {
+                const res = JSON.parse(xhr.responseText)
+                setUploadedFile({ url: res.secure_url, publicId: res.public_id, name: file.name, size: file.size })
+                setUploadProgress(100)
+                resolve()
+              } catch (err) {
+                reject(err)
+              }
+            } else {
+              reject(new Error(`Upload failed with status ${xhr.status}`))
+            }
+          }
+          xhr.onerror = () => reject(new Error('Network error during upload'))
+          xhr.send(form)
+        })
+      } else {
+        // Chunked upload to our server for large files
+        const chunkSize = 5 * 1024 * 1024 // 5MB
+        const totalParts = Math.ceil(file.size / chunkSize)
+        const uploadId = (typeof crypto !== 'undefined' && (crypto as any).randomUUID) ? (crypto as any).randomUUID() : String(Date.now())
+
+        for (let i = 0; i < totalParts; i++) {
+          const start = i * chunkSize
+          const end = Math.min(start + chunkSize, file.size)
+          const chunk = file.slice(start, end)
+
+          const res = await fetch(`/api/uploads/${uploadId}?partIndex=${i}&totalParts=${totalParts}&filename=${encodeURIComponent(file.name)}`, {
+            method: 'POST',
+            body: chunk,
+          })
+
+          if (!res.ok) {
+            const txt = await res.text().catch(() => null)
+            throw new Error(`Chunk upload failed (status ${res.status}) ${txt ? '- ' + txt : ''}`)
+          }
+
+          const json = await res.json().catch(() => null)
+          const percent = Math.round(((i + 1) / totalParts) * 100)
+          setUploadProgress(percent)
+
+          // If server returned final url (assembled), take it
+          if (json?.url) {
+            setUploadedFile({ url: json.url, publicId: json.publicId || json.public_id, name: file.name, size: file.size })
+            setUploadProgress(100)
+            break
+          }
+        }
+      }
+    } catch (err) {
+      console.error('Client upload error:', err)
+      setUploadProgress(null)
+      setUploadedFile(null)
+      const message = err instanceof Error ? err.message : 'Upload failed'
+      toast({ title: 'Upload failed', description: message, variant: 'destructive' })
+    }
   }
 
   const removeFile = (index: number) => {
@@ -91,19 +188,36 @@ export default function CreateGistPage() {
       submitData.append("gistCode", formData.gistCode)
       submitData.append("visibility", formData.visibility)
 
-      if (showAttachments && files.length > 0) {
-        submitData.append("files", files[0])
+      if (showAttachments) {
+        if (uploadedFile) {
+          submitData.append('uploadedFileUrl', uploadedFile.url)
+          submitData.append('uploadedFileName', uploadedFile.name)
+          submitData.append('uploadedFileSize', String(uploadedFile.size))
+          submitData.append('uploadedFilePublicId', uploadedFile.publicId || '')
+        } else if (files.length > 0) {
+          // Fallback: send the raw file to the server which will upload to Cloudinary
+          submitData.append("files", files[0])
+        }
       }
 
+      console.log("Submitting form with fields:", {
+        description: formData.gistDescription?.substring(0, 30),
+        filename: formData.fileNameWithExtension,
+        codeLength: formData.gistCode?.length,
+        visibility: formData.visibility,
+        hasFiles: files.length > 0,
+      })
+
+      // POST to the API route which accepts large multipart uploads
       const response = await fetch("/api/gists", {
         method: "POST",
         body: submitData,
       })
 
-      const result = await response.json()
+      const result = await response.json().catch(() => null)
 
       if (!response.ok) {
-        throw new Error(result.details || result.error || MESSAGES.ERROR_OCCURRED)
+        throw new Error(result?.details || result?.error || MESSAGES.ERROR_OCCURRED)
       }
 
       toast({
@@ -111,8 +225,12 @@ export default function CreateGistPage() {
         description: MESSAGES.GIST_CREATED,
       })
 
-      router.push(`/gist/${result.gistId}`)
+      if (result?.gistId) {
+        router.push(`/gist/${result.gistId}`)
+      }
+
     } catch (error) {
+      console.error("Submission error:", error)
       toast({
         title: "Error",
         description: error instanceof Error ? error.message : MESSAGES.ERROR_OCCURRED,
@@ -289,6 +407,16 @@ export default function CreateGistPage() {
                         </Button>
                       </div>
                     ))}
+
+                    {/* Upload progress / result */}
+                    {uploadProgress !== null && (
+                      <div className="mt-2 text-sm text-muted-foreground">Uploading: {uploadProgress}%</div>
+                    )}
+
+                    {uploadedFile && (
+                      <div className="mt-2 text-sm text-success">Uploaded: {uploadedFile.name}</div>
+                    )}
+
                   </div>
                 )}
               </div>

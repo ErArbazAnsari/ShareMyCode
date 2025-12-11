@@ -23,7 +23,7 @@ export function Navbar() {
             <div className="flex items-center space-x-4">
               <Link href="/" className="flex space-x-2">
                 {/* <Code className="h-6 w-6" /> */}
-                <img src="/favicon.png" alt="ShareMyCode Logo" className="h-6 w-6" />
+                <img src="/share.png" alt="ShareMyCode Logo" className="h-6 w-6" />
                 <span className="font-bold text-xl">ShareMyCode</span>
               </Link>
             </div>
@@ -44,7 +44,7 @@ export function Navbar() {
           <div className="flex items-center space-x-4">
             <Link href="/" className="flex space-x-2">
               {/* <Code className="h-6 w-6" /> */}
-              <img src="/favicon.png" alt="ShareMyCode Logo" className="h-6 w-6" />
+              <img src="/share.png" alt="ShareMyCode Logo" className="h-6 w-6" />
               <span className="font-bold text-xl">ShareMyCode</span>
             </Link>
           </div>

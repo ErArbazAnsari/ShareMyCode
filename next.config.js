@@ -11,6 +11,15 @@ const nextConfig = {
         unoptimized: true,
     },
     serverExternalPackages: ["mongodb"],
+    experimental: {
+        serverActions: {
+            bodySizeLimit: "200mb",
+        },
+    },
+    // Production optimizations
+    compress: true,
+    poweredByHeader: false,
+    reactStrictMode: true,
 };
 
 module.exports = nextConfig;

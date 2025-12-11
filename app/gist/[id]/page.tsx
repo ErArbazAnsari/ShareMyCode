@@ -179,7 +179,9 @@ export default function GistPage() {
       setFilesToDelete([])
       setIsEditing(false)
       toast.success("Gist updated successfully")
-      router.refresh()
+      // Ensure the update fully completed on the server (including uploads)
+      // then navigate to the gist page to reflect the latest state.
+      router.push(`/gist/${id}`)
     } catch (error) {
       console.error("Error updating gist:", error)
       toast.error(error instanceof Error ? error.message : "Failed to update gist")
@@ -246,13 +248,9 @@ export default function GistPage() {
       // Clean the URL by removing any @ symbol at the start
       const cleanUrl = file.fileUrl.replace(/^@/, '')
 
-      // Fetch the file with the correct headers to preserve content
-      const response = await fetch(cleanUrl, {
-        headers: {
-          'Accept': '*/*',
-          'Cache-Control': 'no-cache'
-        }
-      })
+      // Fetch the file via server-side proxy to avoid browser CORS/401 issues
+      const proxyUrl = `/api/cloudinary/proxy?url=${encodeURIComponent(cleanUrl)}`
+      const response = await fetch(proxyUrl)
 
       if (!response.ok) throw new Error('Failed to fetch file')
 
@@ -400,14 +398,14 @@ export default function GistPage() {
               <div className="flex items-center space-x-3">
                 <Avatar className="h-10 w-10">
                   <AvatarFallback>
-                    {gist.user_fullName
+                    {(gist.user_fullName || gist.user_full_name || "Anonymous")
                       .split(" ")
                       .map((n: string) => n[0])
                       .join("")}
                   </AvatarFallback>
                 </Avatar>
                 <div>
-                  <p className="font-medium">{gist.user_fullName}</p>
+                  <p className="font-medium">{gist.user_fullName || gist.user_full_name || "Anonymous"}</p>
                   <div className="flex items-center space-x-2 text-sm text-muted-foreground">
                     <Calendar className="h-3 w-3" />
                     <span>Created {formatDate(gist.createdAt)}</span>

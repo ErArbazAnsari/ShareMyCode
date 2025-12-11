@@ -47,7 +47,7 @@
 - 🔒 **Secure Authentication** - Powered by Clerk for seamless user management
 - 📝 **Rich Code Editor** - Custom code editor with line numbers, syntax highlighting, and customizable settings
 - 🌐 **Public & Private Gists** - Share publicly or keep your code private
-- 📎 **File Attachments** - Attach additional files to your gists
+- 📎 **File Attachments** - Attach additional files to your gists (up to 200MB each)
 - 👤 **User Profiles** - Showcase your gists with personalized profiles
 - 📊 **View Tracking** - See how many times your gists have been viewed
 - 🎨 **Theme Support** - Switch between light and dark modes seamlessly
@@ -300,10 +300,10 @@ ShareMyCode/
 ---
 
 ## 🎨 Core Features Explained
-
+ 📎 **File Attachments** - Attach additional files to your gists (up to 200MB each)
 ### 1. Authentication Flow
 
-ShareMyCode uses Clerk for authentication, providing:
+ **Large File Support**: Up to 200MB files supported
 - **Social Login** - Sign in with Google, GitHub, etc.
 - **Email/Password** - Traditional authentication
 - **Session Management** - Automatic session handling
@@ -449,6 +449,14 @@ Make sure to set all environment variables in your hosting platform:
 - `CLOUDINARY_CLOUD_NAME`
 - `CLOUDINARY_API_KEY`
 - `CLOUDINARY_API_SECRET`
+- `NEXT_PUBLIC_APP_URL` (for production URL)
+
+### Production Monitoring
+
+- **Health Check**: `GET /api/health` - Monitor service status
+- **Large File Support**: Up to 200MB files supported
+- **Error Logging**: All errors are logged to console
+- **Performance**: Optimized with SWC minification and compression
 
 ---
 

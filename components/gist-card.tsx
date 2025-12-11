@@ -41,7 +41,7 @@ export function GistCard({ gist, onDelete }: GistCardProps) {
     })
   }
 
-  const initials = gist.user_fullName
+  const initials = (gist.user_fullName || gist.user_full_name || "Anonymous")
     .split(" ")
     .map((n) => n[0])
     .join("")
@@ -84,7 +84,7 @@ export function GistCard({ gist, onDelete }: GistCardProps) {
             <div className="flex items-center space-x-3">
               <Avatar className="h-8 w-8">
                 {gist.userImageUrl ? (
-                  <AvatarImage src={gist.userImageUrl} alt={gist.user_fullName} />
+                  <AvatarImage src={gist.userImageUrl} alt={gist.user_fullName || gist.user_full_name || "Anonymous"} />
                 ) : (
                   <AvatarFallback className="text-xs font-semibold">{initials}</AvatarFallback>
                 )}
@@ -94,7 +94,7 @@ export function GistCard({ gist, onDelete }: GistCardProps) {
                   {gist.gistDescription || "Untitled Gist"}
                 </CardTitle>
                 <CardDescription className="flex items-center space-x-2">
-                  <span>{gist.user_fullName}</span>
+                  <span>{gist.user_fullName || gist.user_full_name || "Anonymous"}</span>
                   <span>•</span>
                   <Calendar className="h-3 w-3" />
                   <span>{formatDate(gist.createdAt)}</span>

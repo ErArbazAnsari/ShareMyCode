@@ -75,7 +75,7 @@ export default function ProfilePage() {
         // If we have gists, use the first one's user info
         if (gistsData.length > 0) {
           setUserInfo({
-            fullName: gistsData[0].user_fullName,
+            fullName: gistsData[0].user_fullName || gistsData[0].user_full_name || "Anonymous",
             imageUrl: currentUser?.imageUrl
           })
         } else if (currentUser && currentUser.id === userId) {

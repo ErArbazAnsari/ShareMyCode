@@ -8,7 +8,8 @@ export interface SharedFile {
 export interface Gist {
   _id?: string
   userId: string
-  user_fullName: string
+  user_full_name: string
+  user_fullName?: string // Fallback for compatibility
   gistViews: number
   gistDescription: string
   fileNameWithExtension: string

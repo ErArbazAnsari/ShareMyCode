@@ -10,6 +10,11 @@ const isPublicRoute = createRouteMatcher([
 ]);
 
 export default clerkMiddleware((auth, req) => {
+    // Bypass Clerk middleware for any requests to /api/gists (create, update, raw, etc.)
+    if (req.nextUrl.pathname.startsWith("/api/gists")) {
+        return;
+    }
+
     if (!isPublicRoute(req)) {
         auth.protect();
     }
