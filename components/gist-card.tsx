@@ -30,6 +30,7 @@ export function GistCard({ gist, onDelete }: GistCardProps) {
   const router = useRouter()
 
   const getFileExtension = (filename: string) => {
+    if (!filename) return "TXT"
     return filename.split(".").pop()?.toUpperCase() || "TXT"
   }
 
@@ -41,7 +42,7 @@ export function GistCard({ gist, onDelete }: GistCardProps) {
     })
   }
 
-  const initials = gist.user_fullName
+  const initials = (gist.user_fullName || "Anonymous")
     .split(" ")
     .map((n) => n[0])
     .join("")
@@ -136,16 +137,16 @@ export function GistCard({ gist, onDelete }: GistCardProps) {
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-2">
-                <Badge variant="outline">{getFileExtension(gist.fileNameWithExtension)}</Badge>
-                <span className="text-sm text-muted-foreground">{gist.fileNameWithExtension}</span>
+                <Badge variant="outline">{getFileExtension(gist.fileNameWithExtension || "")}</Badge>
+                <span className="text-sm text-muted-foreground">{gist.fileNameWithExtension || "Untitled"}</span>
               </div>
             </div>
 
             <div className="bg-muted rounded-md p-3">
               <pre className="text-sm overflow-hidden whitespace-pre-wrap">
                 <code className="line-clamp-3">
-                  {gist.gistCode.slice(0, 200)}
-                  {gist.gistCode.length > 200 && "..."}
+                  {(gist.gistCode || "").slice(0, 200)}
+                  {(gist.gistCode || "").length > 200 && "..."}
                 </code>
               </pre>
             </div>
